@@ -1,0 +1,20 @@
+{
+  "name": "webfonts",
+  "version": "1.0.0",
+  "description": "Hosting my Web Fonts here",
+  "homepage": "https://github.com/memorileak/webfonts#readme",
+  "bugs": {
+    "url": "https://github.com/memorileak/webfonts/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/memorileak/webfonts.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "get_fonts.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
