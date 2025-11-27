@@ -104,7 +104,7 @@ function transformAndSaveCss(cssContent, fontCssUrl) {
     /url\((https?:\/\/[^)]+)\)/g,
     (_match, p1) => {
       const { directory, file } = detectFontDirAndFileName(p1);
-      return `url(https://cdn.jsdelivr.net/gh/memorileak/webfonts.git@v${
+      return `url(https://cdn.jsdelivr.net/gh/memorileak/webfonts@v${
         packageVersion
       }/fonts/${directory}/${file})`;
     },
