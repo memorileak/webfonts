@@ -1,0 +1,120 @@
+const path = require("path");
+const fs = require("fs");
+const FONT_CSS_URL = process.argv[2] ?? "";
+
+async function callGet(url) {
+  return await fetch(url, {
+    headers: {
+      "sec-ch-ua":
+        '"Chromium";v="142", "Not_A Brand";v="99", "Google Chrome";v="142"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+      "upgrade-insecure-requests": "1",
+      "user-agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    },
+  });
+}
+
+async function getFontCssContent(url) {
+  if (!FONT_CSS_URL) {
+    console.log("Missing font CSS URL, must provide it as the first argument");
+    console.log(
+      "Example: node get_fonts.js 'https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap'",
+    );
+    process.exit(1);
+  }
+
+  const response = await callGet(url);
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch font CSS from ${url}: ${response.statusText}`,
+    );
+  }
+
+  const cssContent = await response.text();
+  return cssContent;
+}
+
+function detectFontUrls(cssContent) {
+  const fontUrlRegex = /url\((https?:\/\/[^)]+)\)/g;
+  const fontUrls = [];
+  let match;
+
+  while ((match = fontUrlRegex.exec(cssContent)) !== null) {
+    fontUrls.push(match[1]);
+  }
+
+  return fontUrls;
+}
+
+function detectFontDirAndFileName(fontUrl) {
+  const file = fontUrl.split("/").pop().split("?")[0];
+  const directory = fontUrl
+    .replace(/https?:\/\/[^/]+\/s\//, "")
+    .split("/")
+    .slice(0, -1)
+    .join("/");
+  return { directory, file };
+}
+
+async function crawlFont(fontUrls) {
+  for (const url of fontUrls) {
+    try {
+      const response = await callGet(url);
+      if (!response.ok) {
+        console.error(
+          `Failed to fetch font from ${url}: ${response.statusText}`,
+        );
+        continue;
+      }
+      const { directory, file } = detectFontDirAndFileName(url);
+      const fontData = await response.arrayBuffer();
+
+      const dirPath = path.join("fonts", directory);
+      fs.mkdirSync(dirPath, { recursive: true });
+
+      const filePath = path.join(dirPath, file);
+      fs.writeFileSync(filePath, Buffer.from(fontData));
+
+      console.log(`Saved font to ${filePath}`);
+    } catch (error) {
+      console.error(`Error fetching font from ${url}:`, error);
+    }
+  }
+}
+
+function transformAndSaveCss(cssContent, fontCssUrl) {
+  const urlObj = new URL(fontCssUrl);
+  const familyParam = urlObj.searchParams.get("family") || "font";
+  const cssFileName = familyParam.replace(/\s+/g, "_") + ".css";
+
+  const transformedCss = cssContent.replace(
+    /url\((https?:\/\/[^)]+)\)/g,
+    (_match, p1) => {
+      const { directory, file } = detectFontDirAndFileName(p1);
+      return `url(https://cdn.jsdelivr.net/gh/memorileak/webfonts.git/fonts/${directory}/${file})`;
+    },
+  );
+
+  const cssDir = path.join("css");
+  fs.mkdirSync(cssDir, { recursive: true });
+  const cssFilePath = path.join(cssDir, cssFileName);
+  fs.writeFileSync(cssFilePath, transformedCss);
+  console.log(`Saved transformed CSS to ${cssFilePath}`);
+}
+
+async function main() {
+  try {
+    const cssContent = await getFontCssContent(FONT_CSS_URL);
+    const fontUrls = detectFontUrls(cssContent);
+    await crawlFont(fontUrls);
+    transformAndSaveCss(cssContent, FONT_CSS_URL);
+  } catch (error) {
+    console.error("Error fetching font CSS:", error);
+    process.exit(1);
+  }
+}
+
+main();
